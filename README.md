@@ -5,8 +5,9 @@ This pattern helps you to package Kubernetes resources together and manage Kuber
 ## Prerequisites
 
 - An IBM IKS cluster
-- Kubectl for configuring the IBM IKS kubeconfig file for the target cluster in the client machine
-- Helm client
+- [IBMCLOUD CLI](https://cloud.ibm.com/docs/cli?topic=cli-install-ibmcloud-cli)
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/) for configuring the IBM IKS kubeconfig file for the target cluster in the client machine
+- [Helm client](https://helm.sh/docs/intro/install/)
 - Bucket in IBM COS to setup helm repository
 
 ## Steps
@@ -14,10 +15,6 @@ This pattern helps you to package Kubernetes resources together and manage Kuber
 - Log in to IBM Cloud and download the kubeconfig of the IBM IKS cluster
   ```
   ibmcloud ks cluster config --admin -c <cluster_name_or_id>
-  ```
-- Download and install the Helm client on your local system, use the following command.
-  ```
-  sudo curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash![image](https://github.com/mssachan/deploy-python-openshift-tutorial/assets/34068620/ac57d81f-2c1d-4882-ad14-edc95534d974)
   ```
 - Validate that Helm is able to communicate with the Kubernetes API server within the IBM IKS cluster.
   ```
@@ -35,7 +32,7 @@ This pattern helps you to package Kubernetes resources together and manage Kuber
   ```
   kubectl create ns test-helm
   ```
-- Run the Helm chart installation.
+- Run the Helm chart installation on the cluster.
   ```
   helm install my-nginx-release --debug my-nginx/ --namespace test-helm
   ```
@@ -45,7 +42,7 @@ This pattern helps you to package Kubernetes resources together and manage Kuber
   ```
   kubectl get all -n test-helm
   ```
-- Create a directory called `charts` on client machine. The example in this pattern uses `s3://<bucket_name>/charts` as the target chart repository.
+- Create a directory called `charts` on the other client machine. The example in this pattern uses `s3://<bucket_name>/charts` as the target chart repository.
   ```
   mkdir charts
   ```
@@ -80,18 +77,43 @@ This pattern helps you to package Kubernetes resources together and manage Kuber
   ```
   The command packages all the contents of the `my-nginx` chart folder into an archive file, which is named using the version number that is mentioned in the Chart.yaml file.
 
-- To upload the package to the Helm repository , run the following command, using the correct name of the `.tgz` file.
+- To upload the package to the Helm repository , run the following command, using the correct name of the `.tgz` file generated in previous step.
   ```
   helm s3 push ./my-nginx-0.1.0.tgz my-helm-charts
   ```
 - To confirm that the chart appears both locally and in the Helm repository in IBM COS, run the following command.
   ```
-  helm search repo my-nginx
+  helm search repo my-helm-charts
+  ```
+- To verify helm chart upgrade, you can modify the helm chart. To modify the chart, in `values.yaml`, change the `replicaCount` value to 2. Also in `Chart.yaml`, change `version` to `0.1.1`. Then re-package the chart again.
+  ```
+  helm package ./my-nginx/
+  ```
+  This will generate a file named `my-nginx-0.1.1.tgz`.
+  
+- Upload new package to the Helm repository.
+  ```
+  helm s3 push ./my-nginx-0.1.1.tgz my-helm-charts
   ```
 - To view all the available versions of a chart, run the following command with the `--versions` flag. Without the flag, Helm by default displays the latest uploaded version of a chart.
   ```
   helm search repo my-nginx --versions
   ```
+- The search results from the previous step show the multiple versions of the `my-nginx` chart. To upgrade installed release with the new version (0.1.1) from the IBM COS Helm repository, use the following command.
+  ```
+  helm upgrade my-nginx-release my-helm-charts/my-nginx --version 0.1.1 --namespace test-helm
+  ```
+- To list all the revisions for a specific release that have been installed using Helm, run the following command.
+  ```
+  helm history my-nginx-release
+  ```
+- Before switching or rolling back to a working version, and for an additional layer of validation before installing a revision, view which values were passed to each of the revisions by using the following command.
+  ```
+  helm get --revision=2 my-nginx-release
+  ```
+
+
+
 
 
 
